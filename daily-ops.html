@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Ops</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2433;
+  --surface3: #252a3a;
+  --border: #2a3040;
+  --border2: #343d52;
+  --text: #e8eaf0;
+  --text-dim: #8892a4;
+  --text-dimmer: #4a5568;
+  --accent: #f0a500;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --overdue: #f97316;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* LAYOUT */
+.app { max-width: 600px; margin: 0 auto; padding: 16px 14px 80px; }
+
+/* HEADER */
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.header-left {}
+.app-title { font-family: var(--mono); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; }
+.date-line { font-family: var(--mono); font-size: 0.68rem; color: var(--text-dimmer); margin-top: 3px; }
+.header-actions { display: flex; gap: 6px; align-items: center; }
+.icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.icon-btn:hover { border-color: var(--border2); color: var(--text); }
+
+/* MASTER BAR */
+.master-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.master-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.master-label { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.master-num { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; line-height: 1; }
+.master-num small { font-size: 0.75rem; color: var(--text-dim); }
+.overdue-flag { font-family: var(--mono); font-size: 0.62rem; color: var(--overdue); letter-spacing: 0.05em; }
+.bar-track { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; background: linear-gradient(90deg, var(--accent), var(--success)); }
+
+/* SECTION */
+.section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; transition: border-color 0.2s; }
+.section.all-done { border-color: var(--success); }
+.section.has-overdue { border-color: var(--overdue); }
+
+.sec-header { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; user-select: none; }
+.sec-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sec-info { flex: 1; min-width: 0; }
+.sec-name { font-size: 0.82rem; font-weight: 500; margin-bottom: 3px; }
+.sec-bar-row { display: flex; align-items: center; gap: 8px; }
+.sec-mini-track { flex: 1; height: 3px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+.sec-mini-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+.sec-count { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
+.sec-count.done { color: var(--success); }
+.gate-pill { font-family: var(--mono); font-size: 0.6rem; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.gate-pill.locked { background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); }
+.gate-pill.unlocked { background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
+.chevron { font-size: 0.7rem; color: var(--text-dimmer); transition: transform 0.2s; flex-shrink: 0; }
+.section.open .chevron { transform: rotate(90deg); }
+
+/* TASK BODY */
+.sec-body { display: none; border-top: 1px solid var(--border); }
+.section.open .sec-body { display: block; }
+
+/* OVERDUE GROUP */
+.overdue-group { padding: 8px 14px 0; }
+.overdue-group-label { font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--overdue); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.overdue-group-label::after { content: ''; flex: 1; height: 1px; background: rgba(249,115,22,0.25); }
+
+/* SUB GROUP */
+.sub-group { padding: 8px 14px 0; }
+.sub-group:last-child { padding-bottom: 10px; }
+.sub-label { font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dimmer); margin-bottom: 4px; }
+
+/* TASK ROW */
+.task-row { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--surface2); cursor: pointer; transition: opacity 0.15s; position: relative; }
+.task-row:last-child { border-bottom: none; }
+.task-row:hover { opacity: 0.82; }
+.task-row.overdue-item { background: rgba(249,115,22,0.04); margin: 0 -14px; padding: 6px 14px; }
+.task-row.overdue-item:last-child { border-bottom: 1px solid var(--surface2); }
+
+.chk { width: 17px; height: 17px; border-radius: 4px; border: 1.5px solid var(--border2); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: transparent; transition: all 0.15s; }
+.task-row.checked .chk { background: var(--success); border-color: var(--success); color: #fff; }
+
+.task-content { flex: 1; min-width: 0; }
+.task-text { font-size: 0.8rem; line-height: 1.4; transition: color 0.15s; }
+.task-row.checked .task-text { color: var(--text-dimmer); text-decoration: line-through; }
+.task-meta { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+.tag { font-family: var(--mono); font-size: 0.58rem; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; }
+.tag.overdue { background: rgba(249,115,22,0.15); color: var(--overdue); }
+.tag.persistent { background: rgba(59,130,246,0.12); color: var(--blue); }
+.tag.recurring { background: rgba(139,92,246,0.12); color: var(--purple); }
+.tag.oneoff { background: rgba(74,85,104,0.3); color: var(--text-dimmer); }
+
+.task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.task-row:hover .task-actions { opacity: 1; }
+.task-act-btn { background: transparent; border: none; color: var(--text-dimmer); cursor: pointer; font-size: 0.7rem; padding: 2px 4px; border-radius: 3px; transition: color 0.15s; }
+.task-act-btn:hover { color: var(--text); }
+
+/* ADD TASK ROW */
+.add-task-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--border); }
+.add-task-btn { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dimmer); background: transparent; border: 1px dashed var(--border); border-radius: 5px; padding: 5px 10px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s; width: 100%; text-align: left; }
+.add-task-btn:hover { border-color: var(--border2); color: var(--text-dim); }
+
+/* ADD SECTION */
+.add-section-btn { width: 100%; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--text-dimmer); font-family: var(--mono); font-size: 0.65rem; padding: 10px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s; margin-top: 4px; }
+.add-section-btn:hover { border-color: var(--border2); color: var(--text-dim); }
+
+/* MODAL */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 50; display: none; align-items: flex-end; justify-content: center; }
+.overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px 14px 0 0; padding: 20px 18px 32px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-family: var(--mono); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+.modal-close { background: transparent; border: none; color: var(--text-dimmer); font-size: 1.1rem; cursor: pointer; padding: 0 2px; }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-family: var(--mono); font-size: 0.63rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+.field input[type=text], .field select, .field textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+  color: var(--text); font-family: var(--sans); font-size: 0.82rem; padding: 8px 10px; outline: none;
+  transition: border-color 0.15s;
+}
+.field input[type=text]:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field select option { background: var(--surface2); }
+
+.toggle-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.toggle-opt { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.toggle-opt input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+.toggle-opt span { font-size: 0.78rem; color: var(--text-dim); }
+
+/* Schedule options */
+.sched-opts { display: none; }
+.sched-opts.visible { display: block; }
+.day-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.day-btn { font-family: var(--mono); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+.day-btn.selected { background: var(--accent); border-color: var(--accent); color: #000; }
+
+.modal-footer { display: flex; gap: 8px; margin-top: 18px; }
+.btn-primary { flex: 1; background: var(--accent); color: #000; border: none; border-radius: 7px; font-family: var(--mono); font-size: 0.75rem; font-weight: 600; padding: 10px; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.15s; }
+.btn-primary:hover { opacity: 0.88; }
+.btn-secondary { background: transparent; border: 1px solid var(--border2); color: var(--text-dim); border-radius: 7px; font-family: var(--mono); font-size: 0.75rem; padding: 10px 14px; cursor: pointer; transition: all 0.15s; }
+.btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+.btn-danger { background: transparent; border: 1px solid rgba(239,68,68,0.3); color: var(--danger); border-radius: 7px; font-family: var(--mono); font-size: 0.75rem; padding: 10px 14px; cursor: pointer; transition: all 0.15s; }
+.btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+/* TOAST */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--success); color: #fff; font-family: var(--mono); font-size: 0.75rem; padding: 9px 18px; border-radius: 8px; letter-spacing: 0.05em; transition: transform 0.3s ease; z-index: 200; white-space: nowrap; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--overdue); }
+
+/* COLOR SWATCHES */
+.swatch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; }
+.swatch.selected { border-color: #fff; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="app-title">Daily Ops</div>
+      <div class="date-line" id="dateLine"></div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" title="New Day" onclick="UI.newDay()">☀</button>
+      <button class="icon-btn" title="Manage Templates" onclick="UI.openTemplates()">⚙</button>
+    </div>
+  </div>
+
+  <div class="master-wrap">
+    <div class="master-top">
+      <div class="master-label">Today's Progress</div>
+      <div style="text-align:right">
+        <div class="master-num" id="masterNum">0 <small>/ 0</small></div>
+        <div class="overdue-flag" id="overdueFlag" style="display:none"></div>
+      </div>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="masterFill" style="width:0%"></div></div>
+  </div>
+
+  <div id="sectionsWrap"></div>
+  <button class="add-section-btn" onclick="UI.openAddSection()">+ Add Section</button>
+</div>
+
+<!-- TASK MODAL -->
+<div class="overlay" id="taskModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="taskModalTitle">Add Task</span>
+      <button class="modal-close" onclick="UI.closeTaskModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Task Name</label>
+      <input type="text" id="tmTaskName" placeholder="e.g. Scan receipts from today" />
+    </div>
+    <div class="field">
+      <label>Section</label>
+      <select id="tmSection"></select>
+    </div>
+    <div class="field">
+      <label>Behavior</label>
+      <div class="toggle-row">
+        <label class="toggle-opt"><input type="checkbox" id="tmRecurring" onchange="UI.onSchedChange()" /><span>Recurring</span></label>
+        <label class="toggle-opt"><input type="checkbox" id="tmPersistent" /><span>Persistent (carries forward if missed)</span></label>
+      </div>
+    </div>
+
+    <!-- SCHEDULE OPTIONS -->
+    <div class="sched-opts" id="schedOpts">
+      <div class="field">
+        <label>Frequency</label>
+        <select id="tmFreq" onchange="UI.onFreqChange()">
+          <option value="daily">Every day</option>
+          <option value="weekly">Specific days of week</option>
+          <option value="monthly">Monthly</option>
+          <option value="interval">Every N days</option>
+        </select>
+      </div>
+      <div id="weeklyOpts" style="display:none" class="field">
+        <label>Days</label>
+        <div class="day-picker" id="dayPicker"></div>
+      </div>
+      <div id="monthlyOpts" style="display:none" class="field">
+        <label>Monthly Rule</label>
+        <select id="tmMonthlyType" onchange="UI.onMonthlyTypeChange()">
+          <option value="dom">Day of month (e.g. 15th)</option>
+          <option value="dow">Day of week (e.g. 2nd Saturday)</option>
+        </select>
+        <div style="margin-top:6px" id="monthlyDom">
+          <input type="text" id="tmDomDay" placeholder="Day number (1-31)" style="width:100%" />
+        </div>
+        <div style="margin-top:6px;display:none" id="monthlyDow">
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <select id="tmDowOrdinal" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:0.8rem;padding:7px 8px">
+              <option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="-1">Last</option>
+            </select>
+            <select id="tmDowDay" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:0.8rem;padding:7px 8px">
+              <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="intervalOpts" style="display:none" class="field">
+        <label>Every how many days?</label>
+        <input type="text" id="tmInterval" placeholder="e.g. 3" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="tmNote" placeholder="Optional sub-text or reminder" />
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-danger" id="tmDeleteBtn" style="display:none" onclick="UI.deleteTask()">Delete</button>
+      <button class="btn-secondary" onclick="UI.closeTaskModal()">Cancel</button>
+      <button class="btn-primary" onclick="UI.saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION MODAL -->
+<div class="overlay" id="sectionModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="secModalTitle">Add Section</span>
+      <button class="modal-close" onclick="UI.closeSectionModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>Section Name</label>
+      <input type="text" id="smName" placeholder="e.g. Health, Homestead, Admin" />
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div class="swatch-row" id="swatchRow"></div>
+    </div>
+    <div class="field">
+      <label>Gate (optional)</label>
+      <input type="text" id="smGate" placeholder="e.g. DO NOT LEAVE UNTIL 100%" />
+      <div style="font-size:0.7rem;color:var(--text-dimmer);margin-top:4px">Shows a locked/unlocked badge when this section must be 100% before proceeding.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-danger" id="smDeleteBtn" style="display:none" onclick="UI.deleteSection()">Delete Section</button>
+      <button class="btn-secondary" onclick="UI.closeSectionModal()">Cancel</button>
+      <button class="btn-primary" onclick="UI.saveSection()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── UTILITIES ─────────────────────────────────────────────────────────────────
+
+function dateKey(d) {
+  d = d || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function today() { return new Date(); }
+
+function dayOfWeek(d) { return (d||new Date()).getDay(); } // 0=Sun
+
+function nthWeekdayOfMonth(d) {
+  // Returns {n: 2, dow: 6} meaning "2nd Saturday"
+  const day = d.getDate();
+  return { n: Math.ceil(day/7), dow: d.getDay() };
+}
+
+function isLastWeekdayOfMonth(d) {
+  const next = new Date(d); next.setDate(d.getDate()+7);
+  return next.getMonth() !== d.getMonth();
+}
+
+function taskShouldAppearToday(task, forDate) {
+  if (!task.recurring) return false;
+  forDate = forDate || new Date();
+  const freq = task.schedule?.freq || 'daily';
+  if (freq === 'daily') return true;
+  if (freq === 'weekly') {
+    const days = task.schedule?.days || [];
+    return days.includes(forDate.getDay());
+  }
+  if (freq === 'monthly') {
+    const mtype = task.schedule?.monthlyType || 'dom';
+    if (mtype === 'dom') {
+      return forDate.getDate() === (task.schedule?.domDay || 1);
+    }
+    if (mtype === 'dow') {
+      const ordinal = parseInt(task.schedule?.dowOrdinal || 1);
+      const dow = parseInt(task.schedule?.dowDay || 0);
+      if (ordinal === -1) {
+        return isLastWeekdayOfMonth(forDate) && forDate.getDay() === dow;
+      }
+      const nw = nthWeekdayOfMonth(forDate);
+      return nw.n === ordinal && nw.dow === dow;
+    }
+  }
+  if (freq === 'interval') {
+    const interval = parseInt(task.schedule?.interval || 1);
+    const epoch = new Date('2024-01-01');
+    const diffDays = Math.floor((forDate - epoch) / 86400000);
+    return diffDays % interval === 0;
+  }
+  return false;
+}
+
+// ── STORAGE ───────────────────────────────────────────────────────────────────
+
+const DB = {
+  KEY_SECTIONS: 'do_sections',
+  KEY_TASKS: 'do_tasks',
+  KEY_INSTANCES: 'do_instances', // {dateKey: {taskId: bool}}
+  KEY_LASTRUN: 'do_lastrun',
+
+  get(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e) { return def; } },
+  set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} },
+
+  getSections() { return this.get(this.KEY_SECTIONS, DEFAULT_SECTIONS); },
+  saveSections(s) { this.set(this.KEY_SECTIONS, s); },
+  getTasks() { return this.get(this.KEY_TASKS, DEFAULT_TASKS); },
+  saveTasks(t) { this.set(this.KEY_TASKS, t); },
+  getInstances() { return this.get(this.KEY_INSTANCES, {}); },
+  saveInstances(i) { this.set(this.KEY_INSTANCES, i); },
+  getLastRun() { return this.get(this.KEY_LASTRUN, null); },
+  setLastRun(dk) { this.set(this.KEY_LASTRUN, dk); }
+};
+
+// ── DEFAULT DATA ──────────────────────────────────────────────────────────────
+
+const DEFAULT_SECTIONS = [
+  { id: 's_night', name: 'Night Before', color: '#8b5cf6', gate: null, order: 0 },
+  { id: 's_am', name: 'Morning — Before Leaving', color: '#f0a500', gate: 'DO NOT LEAVE', order: 1 },
+  { id: 's_day', name: 'During the Day', color: '#3b82f6', gate: null, order: 2 },
+  { id: 's_eve', name: 'Evening', color: '#22c55e', gate: null, order: 3 }
+];
+
+const DEFAULT_TASKS = [
+  // Night Before
+  { id: 't_n1', sectionId: 's_night', text: 'Pack work bag & confirm tomorrow\'s job', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n2', sectionId: 's_night', text: 'Set coffee timer', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n3', sectionId: 's_night', text: 'Kids\' backpacks packed & by door', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n4', sectionId: 's_night', text: 'Kids\' clothes set out', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n5', sectionId: 's_night', text: 'Confirm dog food supply for AM', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n6', sectionId: 's_night', text: 'Top up quail food & water', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_n7', sectionId: 's_night', text: 'Set alarm', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  // Morning
+  { id: 't_a1', sectionId: 's_am', text: 'Dogs out (bathroom)', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a2', sectionId: 's_am', text: 'Dogs fed', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a3', sectionId: 's_am', text: 'Check quail water', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a4', sectionId: 's_am', text: 'Check quail food', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a5', sectionId: 's_am', text: 'Collect quail eggs', recurring: true, persistent: false, schedule: {freq:'daily'}, note: 'Check nest boxes' },
+  { id: 't_a6', sectionId: 's_am', text: 'Kids have eaten breakfast', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a7', sectionId: 's_am', text: 'Kids have used bathroom', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a8', sectionId: 's_am', text: 'Kids have backpacks', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a9', sectionId: 's_am', text: 'Phone, wallet & keys on person', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a10', sectionId: 's_am', text: 'Coffee in travel mug', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a11', sectionId: 's_am', text: 'Work bag & tools in truck', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_a12', sectionId: 's_am', text: 'House locked', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  // Evening
+  { id: 't_e1', sectionId: 's_eve', text: 'Dogs out (PM)', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_e2', sectionId: 's_eve', text: 'Dogs fed (PM)', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_e3', sectionId: 's_eve', text: 'Quail checked — water & food', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+  { id: 't_e4', sectionId: 's_eve', text: 'Scan receipts from today', recurring: true, persistent: true, schedule: {freq:'daily'}, note: '' },
+  { id: 't_e5', sectionId: 's_eve', text: 'Send any invoices for completed work', recurring: true, persistent: true, schedule: {freq:'daily'}, note: 'Crocodile Builders' },
+  { id: 't_e6', sectionId: 's_eve', text: 'Review tomorrow\'s schedule', recurring: true, persistent: false, schedule: {freq:'daily'}, note: '' },
+];
+
+// ── DAY ROLLOVER ENGINE ───────────────────────────────────────────────────────
+
+function runDayRollover() {
+  const tk = dateKey();
+  const lastRun = DB.getLastRun();
+  if (lastRun === tk) return; // already ran today
+
+  const instances = DB.getInstances();
+  const tasks = DB.getTasks();
+  const today_d = new Date();
+
+  // For each task, determine if it should appear today
+  // For persistent tasks: also carry forward any incomplete instances from past days
+  if (!instances[tk]) instances[tk] = {};
+
+  tasks.forEach(task => {
+    if (taskShouldAppearToday(task, today_d)) {
+      // Generate today's instance if not already set
+      if (instances[tk][task.id] === undefined) {
+        instances[tk][task.id] = false;
+      }
+    }
+    // Persistent: carry forward incomplete instances from previous days
+    if (task.persistent) {
+      Object.keys(instances).forEach(dk => {
+        if (dk >= tk) return; // only past
+        if (instances[dk][task.id] === false) {
+          // Overdue — make sure it's in today's instances with its original date
+          const overdueKey = `${task.id}::${dk}`;
+          if (instances[tk][overdueKey] === undefined) {
+            instances[tk][overdueKey] = false;
+          }
+        }
+      });
+    }
+  });
+
+  DB.saveInstances(instances);
+  DB.setLastRun(tk);
+}
+
+// Returns today's active task list: [{taskId, date, overdue, text, ...}]
+function getTodayItems() {
+  const tk = dateKey();
+  const instances = DB.getInstances();
+  const tasks = DB.getTasks();
+  const todayInst = instances[tk] || {};
+  const taskMap = {};
+  tasks.forEach(t => taskMap[t.id] = t);
+
+  const items = [];
+  Object.keys(todayInst).forEach(key => {
+    const done = todayInst[key];
+    if (key.includes('::')) {
+      // overdue carried-forward item
+      const [taskId, origDate] = key.split('::');
+      const task = taskMap[taskId];
+      if (!task) return;
+      items.push({ key, taskId, date: origDate, overdue: true, done, task });
+    } else {
+      const task = taskMap[key];
+      if (!task) return;
+      items.push({ key, taskId: key, date: tk, overdue: false, done, task });
+    }
+  });
+  return items;
+}
+
+function toggleItem(key) {
+  const tk = dateKey();
+  const instances = DB.getInstances();
+  if (!instances[tk]) instances[tk] = {};
+  instances[tk][key] = !instances[tk][key];
+  DB.saveInstances(instances);
+  render();
+}
+
+// ── RENDERING ─────────────────────────────────────────────────────────────────
+
+function formatOverdueDate(dk) {
+  const [y, m, d] = dk.split('-').map(Number);
+  const date = new Date(y, m-1, d);
+  return date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function render() {
+  const sections = DB.getSections().sort((a,b) => a.order - b.order);
+  const items = getTodayItems();
+  const wrap = document.getElementById('sectionsWrap');
+
+  // Group items by section
+  const bySec = {};
+  sections.forEach(s => { bySec[s.id] = { overdue: [], regular: [] }; });
+  items.forEach(item => {
+    const sid = item.task.sectionId;
+    if (!bySec[sid]) return;
+    if (item.overdue) bySec[sid].overdue.push(item);
+    else bySec[sid].regular.push(item);
+  });
+
+  // Master counts
+  let totalAll = 0, doneAll = 0, overdueCount = 0;
+  sections.forEach(s => {
+    const g = bySec[s.id];
+    const all = [...g.overdue, ...g.regular];
+    all.forEach(i => { totalAll++; if (i.done) doneAll++; });
+    g.overdue.forEach(i => { if (!i.done) overdueCount++; });
+  });
+
+  document.getElementById('masterNum').innerHTML = `${doneAll} <small>/ ${totalAll}</small>`;
+  const masterFill = document.getElementById('masterFill');
+  masterFill.style.width = totalAll ? (doneAll/totalAll*100)+'%' : '0%';
+  const oflag = document.getElementById('overdueFlag');
+  if (overdueCount > 0) { oflag.style.display='block'; oflag.textContent = `${overdueCount} overdue item${overdueCount>1?'s':''} pending`; }
+  else { oflag.style.display='none'; }
+
+  // Remember open state
+  const openSecs = new Set();
+  wrap.querySelectorAll('.section.open').forEach(el => openSecs.add(el.dataset.sid));
+
+  wrap.innerHTML = '';
+  sections.forEach(sec => {
+    const g = bySec[sec.id];
+    const allItems = [...g.overdue, ...g.regular];
+    const total = allItems.length;
+    const done = allItems.filter(i=>i.done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const hasOverdue = g.overdue.some(i=>!i.done);
+    const allDone = total > 0 && done === total;
+    const isOpen = openSecs.has(sec.id) || (total === 0);
+
+    const card = document.createElement('div');
+    card.className = `section${allDone?' all-done':''}${hasOverdue?' has-overdue':''}${isOpen?' open':''}`;
+    card.dataset.sid = sec.id;
+
+    // Gate pill
+    let gatePill = '';
+    if (sec.gate) {
+      gatePill = `<div class="gate-pill ${allDone?'unlocked':'locked'}">${allDone ? '✓ CLEAR' : sec.gate + ' ' + pct + '%'}</div>`;
+    }
+
+    // Overdue rows
+    let overdueHTML = '';
+    if (g.overdue.length) {
+      const rows = g.overdue.map(item => taskRowHTML(item)).join('');
+      overdueHTML = `<div class="overdue-group"><div class="overdue-group-label">Overdue — Carried Forward</div>${rows}</div>`;
+    }
+
+    // Regular rows
+    const regRows = g.regular.map(item => taskRowHTML(item)).join('');
+    const regHTML = regRows ? `<div class="sub-group">${regRows}</div>` : '';
+
+    card.innerHTML = `
+      <div class="sec-header" onclick="toggleSection(this.closest('.section'))">
+        <div class="sec-dot" style="background:${sec.color}"></div>
+        <div class="sec-info">
+          <div class="sec-name" style="color:${sec.color}">${sec.name}</div>
+          <div class="sec-bar-row">
+            <div class="sec-mini-track"><div class="sec-mini-fill" style="width:${pct}%;background:${sec.color}"></div></div>
+            <div class="sec-count${allDone?' done':''}">${done}/${total}</div>
+          </div>
+        </div>
+        ${gatePill}
+        <div class="chevron">›</div>
+      </div>
+      <div class="sec-body">
+        ${overdueHTML}
+        ${regHTML}
+        <div class="add-task-row">
+          <button class="add-task-btn" onclick="event.stopPropagation();UI.openAddTask('${sec.id}')">+ Add task to ${sec.name}</button>
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+
+  // Update date line
+  const now = new Date();
+  document.getElementById('dateLine').textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'}).toUpperCase();
+}
+
+function taskRowHTML(item) {
+  const { key, done, overdue, date, task } = item;
+  const dateLabel = overdue ? formatOverdueDate(date) : '';
+  const tags = [];
+  if (overdue) tags.push(`<span class="tag overdue">OVERDUE · ${dateLabel}</span>`);
+  if (task.persistent && !overdue) tags.push(`<span class="tag persistent">persistent</span>`);
+  if (task.recurring) tags.push(`<span class="tag recurring">${task.schedule?.freq||'daily'}</span>`);
+  if (!task.recurring && !task.persistent) tags.push(`<span class="tag oneoff">one-off</span>`);
+  const metaHTML = tags.length ? `<div class="task-meta">${tags.join('')}</div>` : '';
+  const noteHTML = task.note ? `<div style="font-size:0.7rem;color:var(--text-dimmer);margin-top:1px;font-style:italic">${task.note}</div>` : '';
+  return `
+    <div class="task-row${done?' checked':''}${overdue?' overdue-item':''}" onclick="toggleItem('${key}')">
+      <div class="chk">${done?'✓':''}</div>
+      <div class="task-content">
+        <div class="task-text">${task.text}${overdue?` <span style="font-size:0.72rem;color:var(--overdue);">(${dateLabel})</span>`:''}</div>
+        ${noteHTML}
+        ${metaHTML}
+      </div>
+      <div class="task-actions" onclick="event.stopPropagation()">
+        <button class="task-act-btn" onclick="UI.openEditTask('${task.id}')" title="Edit">✎</button>
+      </div>
+    </div>`;
+}
+
+function toggleSection(el) { el.classList.toggle('open'); }
+
+// ── UI CONTROLLER ─────────────────────────────────────────────────────────────
+
+const SWATCH_COLORS = ['#f0a500','#22c55e','#3b82f6','#8b5cf6','#ef4444','#f97316','#06b6d4','#ec4899','#84cc16','#e8eaf0'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+let _editingTaskId = null;
+let _editingSectionId = null;
+let _selectedColor = SWATCH_COLORS[2];
+let _selectedDays = [];
+
+const UI = {
+  // ── TASK MODAL ──
+  openAddTask(sectionId) {
+    _editingTaskId = null;
+    document.getElementById('taskModalTitle').textContent = 'Add Task';
+    document.getElementById('tmTaskName').value = '';
+    document.getElementById('tmNote').value = '';
+    document.getElementById('tmRecurring').checked = false;
+    document.getElementById('tmPersistent').checked = false;
+    document.getElementById('schedOpts').classList.remove('visible');
+    document.getElementById('tmFreq').value = 'daily';
+    document.getElementById('tmDeleteBtn').style.display = 'none';
+    _selectedDays = [];
+    this._populateSectionSelect(sectionId);
+    this._buildDayPicker();
+    this.onFreqChange();
+    document.getElementById('taskModal').classList.add('open');
+    setTimeout(()=>document.getElementById('tmTaskName').focus(), 100);
+  },
+
+  openEditTask(taskId) {
+    const tasks = DB.getTasks();
+    const task = tasks.find(t=>t.id===taskId);
+    if (!task) return;
+    _editingTaskId = taskId;
+    document.getElementById('taskModalTitle').textContent = 'Edit Task';
+    document.getElementById('tmTaskName').value = task.text;
+    document.getElementById('tmNote').value = task.note || '';
+    document.getElementById('tmRecurring').checked = !!task.recurring;
+    document.getElementById('tmPersistent').checked = !!task.persistent;
+    document.getElementById('tmDeleteBtn').style.display = 'inline-block';
+    if (task.recurring) document.getElementById('schedOpts').classList.add('visible');
+    else document.getElementById('schedOpts').classList.remove('visible');
+    const sched = task.schedule || {};
+    document.getElementById('tmFreq').value = sched.freq || 'daily';
+    _selectedDays = sched.days ? [...sched.days] : [];
+    document.getElementById('tmInterval').value = sched.interval || '';
+    document.getElementById('tmMonthlyType').value = sched.monthlyType || 'dom';
+    document.getElementById('tmDomDay').value = sched.domDay || '';
+    document.getElementById('tmDowOrdinal').value = sched.dowOrdinal || '1';
+    document.getElementById('tmDowDay').value = sched.dowDay || '0';
+    this._populateSectionSelect(task.sectionId);
+    this._buildDayPicker();
+    this.onFreqChange();
+    this.onMonthlyTypeChange();
+    document.getElementById('taskModal').classList.add('open');
+  },
+
+  closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); },
+
+  saveTask() {
+    const name = document.getElementById('tmTaskName').value.trim();
+    if (!name) { showToast('Task name required', true); return; }
+    const tasks = DB.getTasks();
+    const sectionId = document.getElementById('tmSection').value;
+    const recurring = document.getElementById('tmRecurring').checked;
+    const persistent = document.getElementById('tmPersistent').checked;
+    const freq = document.getElementById('tmFreq').value;
+    const note = document.getElementById('tmNote').value.trim();
+
+    const schedule = { freq };
+    if (freq === 'weekly') schedule.days = [..._selectedDays];
+    if (freq === 'interval') schedule.interval = parseInt(document.getElementById('tmInterval').value)||1;
+    if (freq === 'monthly') {
+      schedule.monthlyType = document.getElementById('tmMonthlyType').value;
+      schedule.domDay = parseInt(document.getElementById('tmDomDay').value)||1;
+      schedule.dowOrdinal = document.getElementById('tmDowOrdinal').value;
+      schedule.dowDay = document.getElementById('tmDowDay').value;
+    }
+
+    if (_editingTaskId) {
+      const idx = tasks.findIndex(t=>t.id===_editingTaskId);
+      if (idx>=0) tasks[idx] = {...tasks[idx], text:name, sectionId, recurring, persistent, schedule, note};
+    } else {
+      tasks.push({ id: 't_'+Date.now(), sectionId, text:name, recurring, persistent, schedule, note });
+    }
+    DB.saveTasks(tasks);
+    // Re-run rollover to pick up new recurring task for today
+    if (recurring) {
+      DB.setLastRun(null);
+      runDayRollover();
+    }
+    this.closeTaskModal();
+    render();
+    showToast(_editingTaskId ? 'Task updated' : 'Task added');
+  },
+
+  deleteTask() {
+    if (!_editingTaskId) return;
+    if (!confirm('Delete this task?')) return;
+    const tasks = DB.getTasks().filter(t=>t.id!==_editingTaskId);
+    DB.saveTasks(tasks);
+    this.closeTaskModal();
+    render();
+    showToast('Task deleted');
+  },
+
+  onSchedChange() {
+    const recurring = document.getElementById('tmRecurring').checked;
+    document.getElementById('schedOpts').classList.toggle('visible', recurring);
+  },
+
+  onFreqChange() {
+    const freq = document.getElementById('tmFreq').value;
+    document.getElementById('weeklyOpts').style.display = freq==='weekly'?'block':'none';
+    document.getElementById('monthlyOpts').style.display = freq==='monthly'?'block':'none';
+    document.getElementById('intervalOpts').style.display = freq==='interval'?'block':'none';
+    this._buildDayPicker();
+  },
+
+  onMonthlyTypeChange() {
+    const t = document.getElementById('tmMonthlyType').value;
+    document.getElementById('monthlyDom').style.display = t==='dom'?'block':'none';
+    document.getElementById('monthlyDow').style.display = t==='dow'?'block':'none';
+  },
+
+  _buildDayPicker() {
+    const dp = document.getElementById('dayPicker');
+    dp.innerHTML = '';
+    DAYS.forEach((d, i) => {
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.className = 'day-btn' + (_selectedDays.includes(i)?' selected':'');
+      btn.textContent = d;
+      btn.onclick = () => {
+        const idx = _selectedDays.indexOf(i);
+        if (idx>=0) _selectedDays.splice(idx,1); else _selectedDays.push(i);
+        btn.classList.toggle('selected', _selectedDays.includes(i));
+      };
+      dp.appendChild(btn);
+    });
+  },
+
+  _populateSectionSelect(selectedId) {
+    const sel = document.getElementById('tmSection');
+    sel.innerHTML = '';
+    DB.getSections().sort((a,b)=>a.order-b.order).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      if (s.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  },
+
+  // ── SECTION MODAL ──
+  openAddSection() {
+    _editingSectionId = null;
+    document.getElementById('secModalTitle').textContent = 'Add Section';
+    document.getElementById('smName').value = '';
+    document.getElementById('smGate').value = '';
+    document.getElementById('smDeleteBtn').style.display = 'none';
+    _selectedColor = SWATCH_COLORS[2];
+    this._buildSwatches();
+    document.getElementById('sectionModal').classList.add('open');
+  },
+
+  openEditSection(secId) {
+    const sec = DB.getSections().find(s=>s.id===secId);
+    if (!sec) return;
+    _editingSectionId = secId;
+    document.getElementById('secModalTitle').textContent = 'Edit Section';
+    document.getElementById('smName').value = sec.name;
+    document.getElementById('smGate').value = sec.gate || '';
+    document.getElementById('smDeleteBtn').style.display = 'inline-block';
+    _selectedColor = sec.color || SWATCH_COLORS[2];
+    this._buildSwatches();
+    document.getElementById('sectionModal').classList.add('open');
+  },
+
+  closeSectionModal() { document.getElementById('sectionModal').classList.remove('open'); },
+
+  saveSection() {
+    const name = document.getElementById('smName').value.trim();
+    if (!name) { showToast('Section name required', true); return; }
+    const sections = DB.getSections();
+    const gate = document.getElementById('smGate').value.trim() || null;
+    if (_editingSectionId) {
+      const idx = sections.findIndex(s=>s.id===_editingSectionId);
+      if (idx>=0) sections[idx] = {...sections[idx], name, color:_selectedColor, gate};
+    } else {
+      sections.push({ id:'s_'+Date.now(), name, color:_selectedColor, gate, order: sections.length });
+    }
+    DB.saveSections(sections);
+    this.closeSectionModal();
+    render();
+  },
+
+  deleteSection() {
+    if (!_editingSectionId) return;
+    if (!confirm('Delete this section and all its tasks?')) return;
+    const sections = DB.getSections().filter(s=>s.id!==_editingSectionId);
+    const tasks = DB.getTasks().filter(t=>t.sectionId!==_editingSectionId);
+    DB.saveSections(sections);
+    DB.saveTasks(tasks);
+    this.closeSectionModal();
+    render();
+  },
+
+  _buildSwatches() {
+    const row = document.getElementById('swatchRow');
+    row.innerHTML = '';
+    SWATCH_COLORS.forEach(c => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (c===_selectedColor?' selected':'');
+      sw.style.background = c;
+      sw.onclick = () => {
+        _selectedColor = c;
+        row.querySelectorAll('.swatch').forEach(s=>s.classList.remove('selected'));
+        sw.classList.add('selected');
+      };
+      row.appendChild(sw);
+    });
+  },
+
+  newDay() {
+    if (!confirm('Force a new day rollover? Use this if midnight auto-run missed.')) return;
+    DB.setLastRun(null);
+    runDayRollover();
+    render();
+    showToast('Day refreshed');
+  },
+
+  openTemplates() {
+    // For now: open the section we're editing
+    showToast('Long-press a section header to edit it', false);
+  }
+};
+
+// Long-press section headers to edit
+let _lpTimer = null;
+document.addEventListener('pointerdown', e => {
+  const sh = e.target.closest('.sec-header');
+  if (!sh) return;
+  _lpTimer = setTimeout(() => {
+    const sid = sh.closest('.section').dataset.sid;
+    UI.openEditSection(sid);
+  }, 600);
+});
+document.addEventListener('pointerup', () => { clearTimeout(_lpTimer); });
+document.addEventListener('pointermove', () => { clearTimeout(_lpTimer); });
+
+// Close modals on overlay click
+document.getElementById('taskModal').addEventListener('click', e => { if (e.target===document.getElementById('taskModal')) UI.closeTaskModal(); });
+document.getElementById('sectionModal').addEventListener('click', e => { if (e.target===document.getElementById('sectionModal')) UI.closeSectionModal(); });
+
+// Toast
+function showToast(msg, warn=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (warn?' warn':'');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// Midnight rollover check — run every minute
+function midnightCheck() {
+  const tk = dateKey();
+  const last = DB.getLastRun();
+  if (last && last !== tk) { DB.setLastRun(null); runDayRollover(); render(); }
+}
+setInterval(midnightCheck, 60000);
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+runDayRollover();
+render();
+</script>
+</body>
+</html>
